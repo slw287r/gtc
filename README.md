@@ -25,14 +25,14 @@ C implementation of [get_trinuc_norm.R](https://github.com/parklab/SigMA/blob/ma
     * WES target region size calculated with [bedtk](https://github.com/lh3/bedtk)
 
         ```
-        bedtk sort seqcap_capture_b37.bed | bedtk merge | bedtk sum
+        bedtk sort seqcap_capture.bed | bedtk merge | bedtk sum
         63959731
         ```
 
     * Get trinucleotide counts (normalized)
 
         ```
-        time get_trinuc_counts -b seqcap_capture_b37.bed -o seqcap_capture_b37.norm $hs37
+        time get_trinuc_counts -b seqcap_capture.bed -o seqcap_capture.norm $hg19
         
         real	4m12.611s
         user	4m2.172s
