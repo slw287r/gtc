@@ -146,6 +146,6 @@ TTT	0.582413	0.3261839
 </details>
 
 
-May be the built-in `weight_exome` is down-sampled from seqcap manifest, while the concordance with the get_trinuc_counts results is high.
+May be the built-in `weight_exome` is Monte-Carlo-sampled from the seqcap manifest, while the concordance with the get_trinuc_counts results is high.
 
 [<img src="docs/seqcap.svg">]()
