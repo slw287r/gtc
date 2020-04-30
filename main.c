@@ -335,6 +335,8 @@ int main(int argc, char *argv[])
 	if (argc - opt.ind < 1)
 	{
 		fputc('\n', stderr);
+		fputs("Calculating the weight from a bed file for SigMA\n", stderr);
+		fputc('\n', stderr);
 		fprintf(stderr, "usage: \e[1;31m%s\e[0;0m [options] <in.fa>\n", basename(argv[0]));
 		fputc('\n', stderr);
 		fputs("  -b gene panel bed file\n", stderr);
