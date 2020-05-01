@@ -342,10 +342,6 @@ int main(int argc, char *argv[])
 		fputs("  -b gene panel bed file\n", stderr);
 		fputs("  -o normalization relative to genome\n", stderr);
 		fputs("\nnotes: fai index is required for fa\n", stderr);
-		fputs("\nreference: https://github.com/lh3/kmer-cnt\n", stderr);
-		fputs("           https://github.com/lh3/cgranges\n", stderr);
-		fputs("           https://github.com/parklab/SigMA\n", stderr);
-		fputs("\ncontact liujc@geneplus.org.cn for bug reports\n", stderr);
 		fputc('\n', stderr);
 		return 1;
 	}

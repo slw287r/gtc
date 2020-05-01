@@ -149,3 +149,9 @@ TTT	0.582413	0.3261839
 May be the built-in `weight_exome` is Monte-Carlo-sampled from the seqcap manifest, while the concordance with the get_trinuc_counts results is high.
 
 [<img src="docs/seqcap.svg">]()
+
+# References
+
+1. [https://github.com/parklab/SigMA](https://github.com/parklab/SigMA)
+2. [https://github.com/lh3/kmer-cnt](https://github.com/lh3/kmer-cnt)
+3. [https://github.com/lh3/cgranges](https://github.com/lh3/cgranges)
