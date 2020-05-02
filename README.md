@@ -9,22 +9,31 @@ C implementation of [get_trinuc_norm.R](https://github.com/parklab/SigMA/blob/ma
 
 2. How to compile
 
-    ```
+    ```sh
     cd src
     make
     ```
 
 3. Usage
 
+    * Using ref.fa
+    ```sh
+    get_trinuc_counts -b panel_or_WES.bed -o sig3_norm_scale.tsv ref.fa
     ```
-    get_trinuc_counts -b panel_or_WES.bed -o sig3_norm_scale.tsv reference.fa
+
+    * Using ref.2bit
+    ```R
+    R> system.file("extdata/single_sequences.2bit", package="BSgenome.Hsapiens.UCSC.hg19")
+    ```
+    ```bash
+    get_trinuc_counts -b panel_or_WES.bed -o sig3_norm_scale.tsv ref.2bit
     ```
 
 4. WES run
 
     * WES target region size calculated with [bedtk](https://github.com/lh3/bedtk)
 
-        ```
+        ```sh
         bedtk sort seqcap_capture.bed | bedtk merge | bedtk sum
         63959731
         ```
@@ -32,8 +41,8 @@ C implementation of [get_trinuc_norm.R](https://github.com/parklab/SigMA/blob/ma
     * Get trinucleotide counts (normalized)
 
         ```
-        time get_trinuc_counts -b seqcap_capture.bed -o seqcap_capture.norm $hg19
-        
+        time get_trinuc_counts -b seqcap_capture.bed -o seqcap_capture.norm hg19.fa
+
         real	4m12.611s
         user	4m2.172s
         sys	0m7.739s
@@ -146,7 +155,7 @@ TTT	0.582413	0.3261839
 </details>
 
 
-May be the built-in `weight_exome` is Monte-Carlo-sampled from the seqcap manifest, while the concordance with the get_trinuc_counts results is high.
+Perhaps the built-in `weight_exome` is Monte-Carlo-sampled from the seqcap manifest, while the concordance with the get_trinuc_counts results is high.
 
 [<img src="docs/seqcap.svg">]()
 
