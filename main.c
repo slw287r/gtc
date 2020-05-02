@@ -6,24 +6,28 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 
-#include "htslib/ketopt.h" // command-line argument parser
-#include "htslib/kseq.h" // FASTA/Q parser
-#include "htslib/khashl.h" // hash table
-#include "htslib/cgranges.h" // read bed
+#include "htslib/ketopt.h"
+#include "htslib/kseq.h"
+#include "htslib/khashl.h"
+#include "htslib/cgranges.h"
 #include "htslib/faidx.h"
+#include "2bit.h"
 #include "zlib.h"
 
 KSEQ_INIT(gzFile, gzread)
 KHASHL_MAP_INIT(, kc_c1_t, kc_c1, uint64_t, uint32_t, kh_hash_uint64, kh_eq_generic)
 
+#define PRIMARY 24 // primary chromosomes
 #define max(a, b) (((a) < (b)) ? (b) : (a))
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define basename(str) (strrchr(str, '/') ? strrchr(str, '/') + 1 : str)
-#define PP fprintf(stderr, "%s\t%d\t<%s>\n", __FILE__, __LINE__, __func__);
 
 const uint8_t kmertochar[5] = { 'A', 'C', 'G', 'T', 'N' };
 
-const unsigned char seq_nt4_table[256] = { // translate ACGT to 0123
+/**
+ * @brief translate ACGT to 0123
+ */
+const unsigned char seq_nt4_table[256] = {
 	0, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
 	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
 	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
@@ -42,6 +46,9 @@ const unsigned char seq_nt4_table[256] = { // translate ACGT to 0123
 	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
 };
 
+/**
+ * @brief trinucleotides in output
+ */
 char sig3[][4] = {
 	"ACA", "ACC", "ACG", "ACT",
 	"CCA", "CCC", "CCG", "CCT",
@@ -53,6 +60,9 @@ char sig3[][4] = {
 	"TTA", "TTC", "TTG", "TTT"
 };
 
+/**
+ * @brief trinucleotides used by kmer_cnt
+ */
 char key3[][4] = {
 	"ACA", "ACC", "ACG", "ACT",
 	"CCA", "CCC", "CCG", "AGG",
@@ -64,20 +74,12 @@ char key3[][4] = {
 	"TAA", "GAA", "CAA", "AAA"
 };
 
-/*
-uint64_t s64u(const char* s)
-{
-	size_t k = 0;
-	uint64_t x_i, x = 0;
-	while (*s && k++ < 4 * sizeof(uint64_t)) {
-		x_i = seq_nt4_table[(uint8_t) *s];
-		if (x_i > 3) break;
-		x = (x << 2) | x_i;
-	}
-	return x;
-}
-*/
-uint64_t s64u(const char* s)
+static void usage(char *str);
+
+/**
+ * @brief seq to uint64_t
+ */
+static uint64_t s64u(const char* s)
 {
 	int i, l;
 	uint64_t x[2], mask = (1ULL<<6) - 1, shift = 4;
@@ -90,43 +92,8 @@ uint64_t s64u(const char* s)
 	return x[0] < x[1]? x[0] : x[1];
 }
 
-
-static void count_seq(kc_c1_t *h, int k, int len, char *seq) // insert k-mers in $seq to hash table $h
-{
-	int i, l;
-	uint64_t x[2], mask = (1ULL<<k*2) - 1, shift = (k - 1) * 2;
-	for (i = l = 0, x[0] = x[1] = 0; i < len; ++i) {
-		int absent, c = seq_nt4_table[(uint8_t)seq[i]];
-		if (c < 4) { // not an "N" base
-			x[0] = (x[0] << 2 | c) & mask;                  // forward strand
-			x[1] = x[1] >> 2 | (uint64_t)(3 - c) << shift;  // reverse strand
-			if (++l >= k) { // we find a k-mer
-				khint_t itr;
-				uint64_t y = x[0] < x[1]? x[0] : x[1];
-				itr = kc_c1_put(h, y, &absent); // only add one strand!
-				if (absent) kh_val(h, itr) = 0;
-				++kh_val(h, itr);
-			}
-		} else l = 0, x[0] = x[1] = 0; // if there is an "N", restart
-	}
-}
-
-static kc_c1_t *count_file(const char *fn, int k)
-{
-	gzFile fp;
-	kseq_t *ks;
-	kc_c1_t *h;
-	if ((fp = gzopen(fn, "r")) == 0) return 0;
-	ks = kseq_init(fp);
-	h = kc_c1_init();
-	while (kseq_read(ks) >= 0)
-		count_seq(h, k, ks->seq.l, ks->seq.s);
-	kseq_destroy(ks);
-	gzclose(fp);
-	return h;
-}
-
-void u64s(uint64_t x, char* s)
+// convert uint64_t to seq
+static void u64s(uint64_t x, char* s)
 {
 	size_t i = 0;
 	for (i = 0; i < 3; ++i)
@@ -137,7 +104,8 @@ void u64s(uint64_t x, char* s)
 	s[i] = '\0';
 }
 
-void u64rc(uint64_t x, char* s)
+// convert uint64_t to reverse complementary seq
+static void u64rc(uint64_t x, char* s)
 {
 	size_t i = 0;
 	for (i = 2; i > 0; --i)
@@ -149,6 +117,31 @@ void u64rc(uint64_t x, char* s)
 	s[3] = '\0';
 }
 
+// insert k-mers to hash table
+static void count_seq(kc_c1_t *h, int k, int len, char *seq)
+{
+	int i, l;
+	uint64_t x[2], mask = (1ULL<<k*2) - 1, shift = (k - 1) * 2;
+	for (i = l = 0, x[0] = x[1] = 0; i < len; ++i)
+	{
+		int absent, c = seq_nt4_table[(uint8_t)seq[i]];
+		if (c < 4) // not an "N" base
+		{
+			x[0] = (x[0] << 2 | c) & mask;                  // forward strand
+			x[1] = x[1] >> 2 | (uint64_t)(3 - c) << shift;  // reverse strand
+			if (++l >= k) // we find a k-mer
+			{
+				khint_t itr;
+				uint64_t y = x[0] < x[1]? x[0] : x[1];
+				itr = kc_c1_put(h, y, &absent); // only add one strand!
+				if (absent) kh_val(h, itr) = 0;
+				++kh_val(h, itr);
+			}
+		} else l = 0, x[0] = x[1] = 0; // if there is an "N", restart
+	}
+}
+
+// get kmer count from hash table
 static void get_count(const kc_c1_t *h, const char *s, int *c)
 {
 	khint_t k;
@@ -204,6 +197,7 @@ static void get_trinuc_norm(const kc_c1_t *h, const kc_c1_t *h_wg, FILE *fp)
 			fprintf(fp, "%s\t%f\n", sig3[i], norm[i] / sum * 100);
 }
 
+// output in the order of get_trinuc_norm.R
 static void print_sig3(const kc_c1_t *h, FILE *fp)
 {
 	int i;
@@ -215,32 +209,19 @@ static void print_sig3(const kc_c1_t *h, FILE *fp)
 	}
 }
 
-// bed functions
-typedef struct {
-	int32_t l;
-	char *s;
-} bed_rest1_t;
-
-typedef struct {
-	int64_t n, m;
-	bed_rest1_t *a;
-} bed_rest_t;
-
-static char *parse_bed3b(char *s, int32_t *st_, int32_t *en_, char **r)
+static char *parse_bed3(char *s, int32_t *st_, int32_t *en_)
 {
 	char *p, *q, *ctg = 0;
 	int32_t i, st = -1, en = -1;
-	if (r) *r = 0;
-	for (i = 0, p = q = s;; ++q) {
-		if (*q == '\t' || *q == '\0') {
+	for (i = 0, p = q = s;; ++q)
+	{
+		if (*q == '\t' || *q == '\0')
+		{
 			int c = *q;
 			*q = 0;
 			if (i == 0) ctg = p;
 			else if (i == 1) st = atol(p);
-			else if (i == 2) {
-				en = atol(p);
-				if (r && c != 0) *r = q, *q = c;
-			}
+			else if (i == 2) en = atol(p);
 			++i, p = q + 1;
 			if (i == 3 || c == '\0') break;
 		}
@@ -249,11 +230,7 @@ static char *parse_bed3b(char *s, int32_t *st_, int32_t *en_, char **r)
 	return i >= 3? ctg : 0;
 }
 
-char *parse_bed3(char *s, int32_t *st_, int32_t *en_)
-{
-	return parse_bed3b(s, st_, en_, 0);
-}
-
+// load panel region bed file to hash
 static cgranges_t *read_bed(const char *fn)
 {
 	gzFile fp;
@@ -279,40 +256,43 @@ static cgranges_t *read_bed(const char *fn)
 	return cr;
 }
 
-void context(const char *ref, const char *bed, const char *out)
+void context(char *ref, const char *bed, const char *out)
 {
 	size_t i;
 	char *chr;
 	int beg, end, ret;
+	int is2bit = is_twobit(ref);
 	cgranges_t *cr = read_bed(bed); assert(cr);
 	if (!cr_is_sorted(cr)) cr_sort(cr);
 	//cr_merge_pre_index(cr);
-	FILE *fp = fopen(out, "w");
+	FILE *fp = out ? fopen(out, "w") : stdout;
 	//fputs("#kmer\trevcom\tcount\n", fp);
-	faidx_t *fai = fai_load(ref); assert(fai);
+	faidx_t *fai = is2bit ? NULL : fai_load(ref);
+	TwoBit *fb = is2bit ? twobitOpen(ref, 0) : NULL;
 	kc_c1_t *h = kc_c1_init();
 	// iterate over the merged regions
 	for (i = 0; i < cr->n_r; ++i)
 	{
 		chr = cr->ctg[cr->r[i].x >> 32].name;
-		const int len = faidx_seq_len(fai, chr);
+		const int len = is2bit ? twobitChromLen(fb, chr) : faidx_seq_len(fai, chr);
 		beg = max(0, (int32_t)cr->r[i].x - 2);
 		end = min(len, cr->r[i].y + 1);
-		char *seq = faidx_fetch_seq(fai, chr, beg, end - 1, &ret);
+		char *seq = is2bit ? twobitSequence(fb, chr, beg, end) : faidx_fetch_seq(fai, chr, beg, end - 1, &ret);
 		count_seq(h, 3, end - beg, seq);
 		free(seq);
 	}
 	kc_c1_t *h_wg = kc_c1_init();
-	int n = faidx_nseq(fai);
-	for (i = 0; i < n; ++i)
+	//int n = is2bit ? fb->hdr->nChroms : faidx_nseq(fai);
+	for (i = 0; i < PRIMARY; ++i) // primary chromosomes only
 	{
-		const char *chr = faidx_iseq(fai, i);
-		const int len = faidx_seq_len(fai, chr);
-		char *seq = faidx_fetch_seq(fai, chr, 0, len - 1, &ret);
+		const char *chr = is2bit ? fb->cl->chrom[i] : faidx_iseq(fai, i);
+		const int len = is2bit ? twobitChromLen(fb, chr) : faidx_seq_len(fai, chr);
+		char *seq = is2bit ? twobitSequence(fb, chr, 0, len) : faidx_fetch_seq(fai, chr, 0, len - 1, &ret);
 		count_seq(h_wg, 3, len, seq);
 		free(seq);
 	}
-	fai_destroy(fai);
+	if (is2bit) twobitClose(fb);
+	else fai_destroy(fai);
 	cr_destroy(cr);
 	// output
 	get_trinuc_norm(h, h_wg, fp);
@@ -323,7 +303,6 @@ void context(const char *ref, const char *bed, const char *out)
 
 int main(int argc, char *argv[])
 {
-	kc_c1_t *h;
 	int c;
 	char *b = 0, *o = 0, *r = 0;
 	ketopt_t opt = KETOPT_INIT;
@@ -334,28 +313,37 @@ int main(int argc, char *argv[])
 	}
 	if (argc - opt.ind < 1)
 	{
-		fputc('\n', stderr);
-		fputs("Calculating the weight from a bed file for SigMA\n", stderr);
-		fputc('\n', stderr);
-		fprintf(stderr, "usage: \e[1;31m%s\e[0;0m [options] <in.fa>\n", basename(argv[0]));
-		fputc('\n', stderr);
-		fputs("  -b gene panel bed file\n", stderr);
-		fputs("  -o normalization relative to genome\n", stderr);
-		fputs("\nnotes: fai index is required for fa\n", stderr);
-		fputc('\n', stderr);
-		return 1;
+		puts("[ERROR] reference file (fa or 2bit) required!");
+		usage(argv[0]);
 	}
 	if (!b || (access(b, R_OK) == -1))
 	{
-		fputs("required region file no specified or can't be found\n", stderr);
+		fputs("[ERROR] required bed file is not specified or cannot be accessed!\n", stderr);
 		exit(1);
 	}
 	r = argv[opt.ind];
 	if ((access(r, R_OK) == -1))
 	{
-		fputs("reference fa specified can't be accessed\n", stderr);
+		fputs("[ERROR] reference file specified cannot be accessed!\n", stderr);
 		exit(1);
 	}
 	context(r, b, o);
 	return 0;
+}
+
+static void usage(char *str)
+{
+	putchar('\n');
+	puts("Calculate weight (norm96) for gene panel bed for SigMA");
+	putchar('\n');
+	fprintf(stdout, "Usage: \e[1;31m%s\e[0;0m [options] <ref.fa | ref.2bit>\n", basename(str));
+	putchar('\n');
+	puts("  -b gene panel bed file");
+	puts("  -o norm96 relative to genome [stdout]");
+	puts("\nNotes: For fasta (fa) reference, fai index is required.");
+	puts("       You can also make use of BSgenome's 2bit file in");
+	puts("       R> \e[3msystem.file(\"extdata/single_sequences.2bit\",");
+	puts("                 package=\"BSgenome.Hsapiens.UCSC.hg19\")\e[0m");
+	putchar('\n');
+	exit(EXIT_FAILURE);
 }
