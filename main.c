@@ -17,6 +17,7 @@
 KSEQ_INIT(gzFile, gzread)
 KHASHL_MAP_INIT(, kc_c1_t, kc_c1, uint64_t, uint32_t, kh_hash_uint64, kh_eq_generic)
 
+#define VERSION "0.2.0"
 #define PRIMARY 24 // primary chromosomes
 #define max(a, b) (((a) < (b)) ? (b) : (a))
 #define min(a, b) (((a) < (b)) ? (a) : (b))
@@ -306,10 +307,12 @@ int main(int argc, char *argv[])
 	int c;
 	char *b = 0, *o = 0, *r = 0;
 	ketopt_t opt = KETOPT_INIT;
-	while ((c = ketopt(&opt, argc, argv, 1, "b:o:", 0)) >= 0)
+	while ((c = ketopt(&opt, argc, argv, 1, "b:o:hv", 0)) >= 0)
 	{
 		if (c == 'b') b = opt.arg;
 		if (c == 'o') o = opt.arg;
+		if (c == 'h') usage(argv[0]);
+		if (c == 'v') return(puts(VERSION));
 	}
 	if (argc - opt.ind < 1)
 	{
@@ -340,6 +343,9 @@ static void usage(char *str)
 	putchar('\n');
 	puts("  -b gene panel bed file");
 	puts("  -o norm96 relative to genome [stdout]");
+	putchar('\n');
+	puts("  -h display help message");
+	puts("  -v display programme version");
 	puts("\nNotes: For fasta (fa) reference, fai index is required.");
 	puts("       You can also make use of BSgenome's 2bit file in");
 	puts("       R> \e[3msystem.file(\"extdata/single_sequences.2bit\",");
