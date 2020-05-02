@@ -6,6 +6,7 @@ C implementation of [get_trinuc_norm.R](https://github.com/parklab/SigMA/blob/ma
     * Very fast
     * No region sampling for WES or WGS
     * WGS sig3 calculation on the fly
+    * Supports both fa and 2bit references
 
 2. How to compile
 
