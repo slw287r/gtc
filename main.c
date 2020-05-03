@@ -305,6 +305,7 @@ void context(char *ref, const char *bed, const char *out)
 int main(int argc, char *argv[])
 {
 	int c;
+	if (argc == 1) usage(argv[0]);
 	char *b = 0, *o = 0, *r = 0;
 	ketopt_t opt = KETOPT_INIT;
 	while ((c = ketopt(&opt, argc, argv, 1, "b:o:hv", 0)) >= 0)
