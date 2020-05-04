@@ -35,7 +35,7 @@ C implementation of [get_trinuc_norm.R](https://github.com/parklab/SigMA/blob/ma
     * WES target region size calculated with [bedtk](https://github.com/lh3/bedtk)
 
         ```sh
-        bedtk sort seqcap_capture.bed | bedtk merge | bedtk sum
+        bedtk sum -m seqcap_capture.bed
         63959731
         ```
 
