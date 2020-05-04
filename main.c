@@ -348,9 +348,15 @@ static void usage(char *str)
 	puts("  -h display help message");
 	puts("  -v display programme version");
 	puts("\nNotes: For fasta (fa) reference, fai index is required.");
-	puts("       You can also make use of BSgenome's 2bit file in");
+	puts("       You can also make use of BSgenome's 2bit ref in");
 	puts("       R> \e[3msystem.file(\"extdata/single_sequences.2bit\",");
 	puts("                 package=\"BSgenome.Hsapiens.UCSC.hg19\")\e[0m");
+	puts("       Please make sure the bed file is using the same");
+	puts("       naming convention as the reference:");
+	puts("         hg19 (fa or 2bit): chr-prefix");
+	puts("         b37/GRCh37.p13 fa: no chr-prefix");
+	puts("       Primary chromosomes are used in counting genome-");
+	puts("       wide trinucleotides.");
 	putchar('\n');
 	exit(EXIT_FAILURE);
 }
