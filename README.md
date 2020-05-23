@@ -1,3 +1,5 @@
+<img src='https://img.shields.io/badge/SigMA-get_trinuc_norm-red.svg'></pre>
+
 # Introduction
 
 C implementation of [get_trinuc_norm.R](https://github.com/parklab/SigMA/blob/master/R/get_trinuc_norm.R) based up [kmer-cnt](https://github.com/lh3/kmer-cnt) and [cgranges](https://github.com/lh3/cgranges). The only library dependency is [zlib](https://www.zlib.net).
