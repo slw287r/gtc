@@ -1,4 +1,4 @@
-<img src='https://img.shields.io/badge/SigMA-get_trinuc_norm-red.svg'></pre>
+<a href="https://github.com/parklab/SigMA/blob/master/R/get_trinuc_norm.R" target="_blank"><img src='https://img.shields.io/badge/SigMA-get_trinuc_norm-red.svg'></pre></a>
 
 # Introduction
 
